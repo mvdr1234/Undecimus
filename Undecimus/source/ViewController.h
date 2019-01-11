@@ -50,6 +50,8 @@ static inline void showAlert(NSString *title, NSString *message, Boolean wait, B
 
 @interface ViewController : UIViewController
 @property (weak, nonatomic) IBOutlet UIButton *goButton;
+@property (weak, nonatomic) IBOutlet UITextView *outputView;
+@property (readonly) ViewController *sharedController;
 
 double uptime(void);
 int necp_die(void);
@@ -58,6 +60,7 @@ void setPreference(NSString *key, id object);
 NSString *hexFromInt(NSInteger val);
 
 - (IBAction)tappedOnJailbreak:(id)sender;
+- (void)appendTextToOutput:(NSString*)text;
 +(ViewController*)sharedController;
 
 @end

@@ -1428,10 +1428,10 @@ void exploit(mach_port_t tfp0,
             resources = [NSArray arrayWithContentsOfFile:@"/usr/share/undecimus/injectme.plist"];
         }
         if (needStrap || needSubstrate) {
-            resources = [resources arrayByAddingObjectsFromArray:@[@"/jb/tar", @"/jb/lzma"]];
+            resources = [@[@"/jb/tar", @"/jb/lzma"] arrayByAddingObjectsFromArray:resources];
         }
         _assert(cdhashFor(@"/usr/libexec/substrate") != nil, message, true);
-        resources = [resources arrayByAddingObject:@"/usr/libexec/substrate"];
+        resources = [@[@"/usr/libexec/substrate"] arrayByAddingObjectsFromArray:resources];
         _assert(injectTrustCache(resources, GETOFFSET(trust_chain)) == ERR_SUCCESS, message, true);
         LOG("Successfully injected trust cache.");
     }
@@ -1552,7 +1552,7 @@ void exploit(mach_port_t tfp0,
         // Run substrate
         LOG("Starting Substrate...");
         SETMESSAGE(NSLocalizedString(@"Failed to start Substrate.", nil));
-        _assert(runCommand("/usr/libexec/substrate", NULL) == ERR_SUCCESS, message, false);
+        _assert(runCommand("/usr/libexec/substrate", NULL) == ERR_SUCCESS, message, true);
     }
     
     UPSTAGE();
@@ -1803,13 +1803,18 @@ void exploit(mach_port_t tfp0,
             // Remove Electra's Cydia.
             LOG("Removing Electra's Cydia...");
             SETMESSAGE(NSLocalizedString(@"Failed to remove Electra's Cydia.", nil));
-            rv = runCommand("/usr/bin/dpkg", "--force-depends", "-r", "cydia-gui", NULL);
-            _assert(WEXITSTATUS(rv) == ERR_SUCCESS, message, true);
+            _assert(removeDeb("cydia-gui", true), message, true);
             if (!prefs.install_cydia) {
                 prefs.install_cydia = true;
                 [[[NSUserDefaults alloc] initWithUser:@"mobile"] setObject:@YES forKey:@K_INSTALL_CYDIA inDomain:PREFERENCES_FILE];
             }
             LOG("Successfully removed Electra's Cydia.");
+        }
+        if (debIsInstalled("cydia-upgrade-helper")) {
+            // Remove Electra's Cydia.
+            LOG("Removing Electra's Cydia Upgrade Helper...");
+            SETMESSAGE(NSLocalizedString(@"Failed to remove Electra's Cydia Upgrade Helper.", nil));
+            _assert(removeDeb("cydia-upgrade-helper", true), message, false);
         }
         if (access("/etc/apt/sources.list.d/electra.list", F_OK) == ERR_SUCCESS) {
             if (!prefs.install_cydia) {

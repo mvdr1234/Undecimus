@@ -1301,6 +1301,8 @@ void exploit(mach_port_t tfp0,
         // These don't need to lay around
         clean_file("/Library/LaunchDaemons/jailbreakd.plist");
         clean_file("/jb/jailbreakd.plist");
+        clean_file("/jb/amfid_payload.dylib");
+        clean_file("/jb/libjailbreak.dylib");
 
         LOG("Successfully copied over our resources to RootFS.");
     }
@@ -1573,12 +1575,11 @@ void exploit(mach_port_t tfp0,
             extractResources();
             rv = runCommand("/usr/bin/dpkg", "--configure", "-a", NULL);
             _assert(WEXITSTATUS(rv) == ERR_SUCCESS, message, true);
+            [[[NSUserDefaults alloc] initWithUser:@"mobile"] setObject:@YES forKey:@K_REFRESH_ICON_CACHE inDomain:PREFERENCES_FILE];
             prefs.run_uicache = true;
-            clean_file("/jb/tar");
-            clean_file("/jb/lzma");
         } else {
             if (!needResources) {
-                updatedResources = compareInstalledVersion("science.xnu.undecimus.resources", "lt", [BUNDLEDRESOURCES UTF8String]);
+                updatedResources = compareInstalledVersion("jailbreak-resources", "lt", [BUNDLEDRESOURCES UTF8String]);
             }
             if (needResources || updatedResources) {
                 extractResources();
@@ -1587,34 +1588,25 @@ void exploit(mach_port_t tfp0,
         if (access("/.installed_unc0ver", F_OK) != ERR_SUCCESS) {
             _assert(create_file("/.installed_unc0ver", 0, 0644), message, true);
         }
-        // Now that things are running, let's install the deb for the files we just extracted
-        if (needSubstrate) {
-            installDebs(@[ @"substrate-safemode.deb", @"mobilesubstrate.deb" ], true);
+        if (needStrap || needSubstrate) {
+            clean_file("/jb/tar");
+            clean_file("/jb/lzma");
+            clean_file("/jb/substrate.tar.lzma");
         }
+        // Now that things are running, let's install the deb for the files we just extracted
         if (!debIsInstalled("lzma") || compareInstalledVersion("lzma", "lt", "2:0")) {
             installDeb("lzma.deb", false);
         }
         if (!debIsInstalled("xz")) {
             installDeb("xz.deb", false);
         }
+        if (needSubstrate) {
+            installDebs(@[ @"substrate-safemode.deb", @"mobilesubstrate.deb" ], true);
+        }
         _assert(chdir("/jb") == ERR_SUCCESS, message, true);
-        char link[0x100];
-        bzero(link, sizeof(link));
-        if ((readlink("/electra", link, 0x9f) == -1) ||
-            (strcmp(link, "/jb") != ERR_SUCCESS)) {
-            clean_file("/electra");
-            symlink("/jb", "/electra");
-        }
-        if ((readlink("/.bootstrapped_electra", link, 0x9f) == -1) ||
-            (strcmp(link, "/.installed_unc0ver") != ERR_SUCCESS)) {
-            clean_file("/.bootstrapped_electra");
-            symlink("/.installed_unc0ver", "/.bootstrapped_electra");
-        }
-        if ((readlink("/electra/libjailbreak.dylib", link, 0x9f) == -1) ||
-            (strcmp(link, "/usr/lib/libjailbreak.dylib") != ERR_SUCCESS)) {
-            clean_file("/electra/libjailbreak.dylib");
-            symlink("/usr/lib/libjailbreak.dylib", "/electra/libjailbreak.dylib");
-        }
+        
+        ensure_symlink("/jb", "/electra");
+        ensure_symlink("/.installed_unc0ver", "/.bootstrapped_electra");
         LOG("Successfully extracted bootstrap.");
     }
     
@@ -1807,6 +1799,7 @@ void exploit(mach_port_t tfp0,
             if (!prefs.install_cydia) {
                 prefs.install_cydia = true;
                 [[[NSUserDefaults alloc] initWithUser:@"mobile"] setObject:@YES forKey:@K_INSTALL_CYDIA inDomain:PREFERENCES_FILE];
+                prefs.run_uicache = true;
             }
             LOG("Successfully removed Electra's Cydia.");
         }
@@ -1839,6 +1832,8 @@ void exploit(mach_port_t tfp0,
             LOG("Disabling Install Cydia...");
             SETMESSAGE(NSLocalizedString(@"Failed to disable Install Cydia.", nil));
             [[[NSUserDefaults alloc] initWithUser:@"mobile"] setObject:@NO forKey:@K_INSTALL_CYDIA inDomain:PREFERENCES_FILE];
+            [[[NSUserDefaults alloc] initWithUser:@"mobile"] setObject:@YES forKey:@K_REFRESH_ICON_CACHE inDomain:PREFERENCES_FILE];
+            prefs.run_uicache = true;
             LOG("Successfully disabled Install Cydia.");
         }
     }
